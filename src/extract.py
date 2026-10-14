@@ -11,7 +11,7 @@ import json
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-
+import time
 import pandas as pd
 import requests
 
@@ -27,6 +27,8 @@ RAW_DATA_DIR = Path("data/raw")
 TIMEOUT_SECONDS = 10
 HOURS_PER_DAY = 24
 DEFAULT_DAYS_BACK = 5
+MAX_ATTEMPTS=3
+RETRY_WAIT_SECONDS=1
 
 
 def parse_dates(args):
@@ -63,9 +65,19 @@ def fetch_city_day(lat, lon, day):
         "start_date": day,
         "end_date": day,
     }
-    response = requests.get(BASE_URL, params=params, timeout=TIMEOUT_SECONDS)
-    response.raise_for_status()
-    return response.text
+    for attempt in range(1, MAX_ATTEMPTS+ 1):
+        try:
+            response=requests.get(BASE_URL, params=params, timeout=TIMEOUT_SECONDS)
+            response.raise_for_status()
+            return response.text
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError):
+            if attempt == MAX_ATTEMPTS:
+                raise
+            wait=RETRY_WAIT_SECONDS * 2 ** (attempt -1 )
+            print(f"Attempt {attempt} failed, retrying in {wait}s")
+            time.sleep(wait)
+
+ 
 
 
 def save_raw(city, day, raw_text):
@@ -102,6 +114,14 @@ def print_summary(frame):
     print("\nPM2.5 per city (mean, max):")
     print(frame.groupby("city")["pm2_5"].agg(["mean", "max"]).round(1))
 
+def split_future_days(days, today):
+    """Return (past_days, future_days): days before today, and days that are today or later."""
+    past_days=[day for day in days if day<today]
+    future_days=[day for day in days if day>=today]
+    return past_days, future_days
+
+
+
 
 def main():
     try:
@@ -112,13 +132,20 @@ def main():
         sys.exit(2)
 
     days = date_range(start, end)
-    expected_rows_per_city = HOURS_PER_DAY * len(days)
+    past_days, future_days = split_future_days(days, date.today())
+    if future_days:
+        print(f"Skipping {len(future_days)} future day(s) ({future_days[0]} to {future_days[-1]}): forecasts are not used.")
+    if not past_days:
+        print("Nothing to fetch")
+        return
+    expected_rows_per_city = len(past_days) * HOURS_PER_DAY
+
 
     frames = []
     failed = []  # list of (city, day) pairs
 
     for city, (lat, lon) in CITY_COORDINATES.items():
-        for day in days:
+        for day in past_days:
             day_text = day.isoformat()
             try:
                 raw_text = fetch_city_day(lat, lon, day_text)
