@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]  #runs the workflow whenever u push to the main branch or open a pull request
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest #github gives a fresh linux machine for each run
+    steps:
+      - uses: actions/checkout@v4 #downloads repo onto that machine
+
+      - uses: actions/setup-python@v5 #installs the python version you choose
+        with:
+          python-version: "3.12"
+          cache: pip #reuses downloaded packages to make later runs faster
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt #installs dependencies from the file
+
+      - name: Run tests
+        run: pytest -v #runs tests
