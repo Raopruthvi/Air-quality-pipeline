@@ -1,4 +1,4 @@
-"""Load step: read saved raw API responses and upsert them into PostgreSQL.
+"""Load step: read saved raw API responses, check their quality, and upsert them into PostgreSQL.
 
 Usage (run from the project root, with the database container running):
     python src/load.py
@@ -14,6 +14,7 @@ import psycopg
 
 from config import get_db_url
 from extract import CITY_COORDINATES, HOURLY_VARIABLES, RAW_DATA_DIR, is_past
+from quality import check_rows
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,15 @@ def load_all_files(conn, city_ids):
             failed.append(path)
             continue
 
+        errors, warnings = check_rows(rows, day)
+        for message in warnings:
+            logger.warning("%s: %s", path, message)
+        if errors:
+            for message in errors:
+                logger.error("%s: %s", path, message)
+            failed.append(path)
+            continue
+
         upsert_readings(conn, rows)
         loaded_rows += len(rows)
         logger.info("%s: %d rows", path, len(rows))
@@ -126,7 +136,7 @@ def main():
     if skipped:
         logger.info("Skipped %d file(s) dated today or later (forecasts).", len(skipped))
     if failed:
-        logger.error("FAILED to read %d file(s).", len(failed))
+        logger.error("FAILED to load %d file(s).", len(failed))
         sys.exit(1)
 
 
