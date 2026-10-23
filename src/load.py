@@ -13,7 +13,8 @@ from pathlib import Path
 import psycopg
 
 from config import get_db_url
-from extract import CITY_COORDINATES, HOURLY_VARIABLES, RAW_DATA_DIR, is_past
+from constants import CITY_COORDINATES, HOURLY_VARIABLES, RAW_DATA_DIR
+from dates import is_past
 from quality import check_rows
 
 logger = logging.getLogger(__name__)

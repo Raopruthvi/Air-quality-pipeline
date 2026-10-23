@@ -3,7 +3,7 @@
 Errors mean "do not load this file". Warnings mean "load it, but tell someone".
 """
 
-from extract import HOURLY_VARIABLES, HOURS_PER_DAY
+from constants import HOURLY_VARIABLES, HOURS_PER_DAY
 
 # Row layout from build_rows(): (city_id, reading_time, pm10, pm2_5, ...)
 FIRST_POLLUTANT_INDEX = 2

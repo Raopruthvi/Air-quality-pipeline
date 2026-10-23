@@ -107,13 +107,13 @@ Settings come from `.env` (see `.env.example`): `DB_HOST`, `DB_PORT`, `DB_NAME`,
 
 ## Analysis
 
-`sql/analysis.sql` holds six queries on the star schema, each with a comment stating its question:
+`sql/analysis.sql` holds six queries on the star schema, each with a comment stating its question. Run them one at a time in a SQL client such as DBeaver, or all together with `psql -f sql/analysis.sql`.
 
 1. **Coverage check:** city/days that do not have exactly 24 rows
 2. **Worst hour of the day:** the hour with the highest average PM2.5 per city
 3. **City ranking:** cities ranked by average PM2.5 (`RANK()`)
 4. **3-day moving average** of daily PM2.5 per city (window function)
-5. **Threshold days:** days per city with a daily average above the WHO 24-hour PM2.5 guideline (source cited in the file)
+5. **Threshold days:** days per city with a daily average above the WHO 24-hour PM2.5 guideline of 15 µg/m³ (WHO global air quality guidelines, 2021; the source is cited in the file)
 6. **Worst day per city:** the day with the highest average PM2.5
 
 ```sql
@@ -170,12 +170,15 @@ The tests cover pure logic and the retry behavior. They do not include an integr
 - Retries cover timeouts and connection errors only. Rate-limit (429) and server (5xx) responses are not retried.
 - A day that fails a quality check, or was never fetched, leaves a gap. The failure is logged and `load.py` exits with code 1, but nothing is recorded in the database about which days are missing.
 - `load.py` re-reads every raw file on each run. That is fine at this size and would need an incremental approach at a larger one.
+- All files are loaded in one transaction: a database error part-way through rolls back the whole run. Files rejected by the quality checks are skipped without affecting the rest.
+- "Today" is taken from the machine's clock (UTC inside the Docker container), so for a few hours each night in India the day that counts as "today" can differ from the local date.
 - Nothing runs on a schedule yet. Extract and load are started by hand.
 - Credentials are for local development. `.env` is not a production secrets setup.
 - The pipeline image also installs test dependencies; separating runtime and development requirements would make it smaller.
 - Running `schema.sql` drops the existing tables.
 
-## Roadmap (planned, not built yet)
+## Possible future work
 
-- Scheduled cloud deployment on AWS
-- A guarded natural-language-to-SQL query feature (read-only user, `SELECT` only, row limit)
+- Run extract and load on a schedule
+- Integration test of the load step against a real PostgreSQL (for example with Testcontainers for Python)
+- Incremental loading and a table that records missing days

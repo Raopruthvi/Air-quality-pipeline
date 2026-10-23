@@ -12,24 +12,20 @@ import logging
 import sys
 import time
 from datetime import date, timedelta
-from pathlib import Path
+
 
 import pandas as pd
 import requests
 
+from constants import HOURLY_VARIABLES, HOURS_PER_DAY, RAW_DATA_DIR, CITY_COORDINATES
+from dates import is_past
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
-HOURLY_VARIABLES = ["pm10", "pm2_5", "carbon_monoxide", "dust", "carbon_dioxide", "nitrogen_dioxide"]
-CITY_COORDINATES = {
-    "Mangaluru": (12.9156, 74.8560),
-    "Bengaluru": (12.9716, 77.5946),
-    "Delhi": (28.6139, 77.2090),
-    "Chennai": (13.0827, 80.2707),
-}
-RAW_DATA_DIR = Path("data/raw")
+
 TIMEOUT_SECONDS = 10
-HOURS_PER_DAY = 24
+
 DEFAULT_DAYS_BACK = 5
 MAX_ATTEMPTS = 3
 RETRY_WAIT_SECONDS = 1
@@ -59,9 +55,6 @@ def date_range(start, end):
     return days
 
 
-def is_past(day, today):
-    """The single definition of 'past': strictly before today."""
-    return day < today
 
 
 def split_future_days(days, today):

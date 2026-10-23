@@ -1,5 +1,7 @@
-""" Coverage check: list every city and day that does not have exactly 24 rows. 
-Hint: GROUP BY, then HAVING COUNT(*) <> 24."""
+-- Analytical queries on the star schema (dim_city, fact_air_quality).
+-- Run them one at a time in a SQL client, or all together with: psql -f sql/analysis.sql
+
+-- 1. Coverage check: list every city and day that does not have exactly 24 rows.
 select c.city_name, f.reading_time::date as DAY, count(*) as row_count
 from fact_air_quality f
 join dim_city c on c.city_id=f.city_id
@@ -7,9 +9,7 @@ group by c.city_name,DAY
 having count(*)<>24
 order by c.city_name,DAY;
 
-""" Worst time of day: for each city, the hour of day with the highest 
-average PM2.5. Hint: EXTRACT(HOUR FROM reading_time)."""
--- For each city, the hour of day with the highest average PM2.5
+-- 2. Worst time of day: for each city, the hour of day with the highest average PM2.5.
 WITH hourly AS (
     SELECT c.city_name,
            EXTRACT(HOUR FROM f.reading_time)::int AS hour_of_day,
@@ -27,16 +27,17 @@ FROM ranked
 WHERE rnk = 1
 ORDER BY city_name;
 
-"""City ranking: rank the cities by average PM2.5 using RANK() OVER (ORDER BY ...)."""
-select c.city_name, round(AVG(f.pm2_5),1) as avg_pm25, 
+-- 3. City ranking: rank the cities by average PM2.5, highest first.
+select c.city_name, round(AVG(f.pm2_5),1) as avg_pm25,
 rank() over(order by avg(f.pm2_5) desc) as rnk
 from fact_air_quality f
 join dim_city c on c.city_id=f.city_id
 group by c.city_name
 order by rnk;
 
-"""3-day moving average of daily PM2.5 per city. 
-Hint: AVG(...) OVER (PARTITION BY ... ORDER BY ... ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)."""
+-- 4. 3-day moving average of daily PM2.5 per city.
+-- ROWS counts rows, not calendar days: if a day is missing, the window silently
+-- stretches over a longer period (query 1 shows whether any day is missing).
 WITH daily AS (
     SELECT city_id, reading_time::date AS day, AVG(pm2_5) AS avg_pm25
     FROM fact_air_quality
@@ -53,8 +54,10 @@ FROM daily d
 JOIN dim_city c ON c.city_id = d.city_id
 ORDER BY c.city_name, d.day;
 
-"""Threshold days: the number of days per city whose average PM2.5 is above a threshold. Look up WHO’s 
-24-hour PM2.5 guideline value yourself and note its source in a comment. Don’t take my word or guess it."""
+-- 5. Threshold days: number of days per city whose average PM2.5 is above the
+-- WHO 24-hour guideline of 15 ug/m3.
+-- Source: WHO global air quality guidelines 2021 (24-hour mean PM2.5).
+-- Check the current value on the WHO website before relying on it.
 WITH daily AS (
     SELECT city_id, reading_time::date AS day, AVG(pm2_5) AS avg_pm25
     FROM fact_air_quality
@@ -68,8 +71,7 @@ JOIN dim_city c ON c.city_id = d.city_id
 GROUP BY c.city_name
 ORDER BY days_above_guideline DESC;
 
-"""Worst day per city: the single day with the highest average PM2.5 for each city. 
-Hint: a CTE plus RANK() or ROW_NUMBER() partitioned by city."""
+-- 6. Worst day per city: the single day with the highest average PM2.5.
 WITH daily AS (
     SELECT c.city_name, f.reading_time::date AS day, AVG(f.pm2_5) AS avg_pm25
     FROM fact_air_quality f
