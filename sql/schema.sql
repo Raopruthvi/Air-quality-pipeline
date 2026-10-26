@@ -21,4 +21,3 @@ CREATE TABLE fact_air_quality(
    
    PRIMARY KEY (city_id, reading_time)
 );
-
