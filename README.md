@@ -2,6 +2,12 @@
 
 ![CI](https://github.com/Raopruthvi/Air-quality-pipeline/actions/workflows/ci.yml/badge.svg)
 
+**Highlights**
+- Hourly air quality for 4 Indian cities into a PostgreSQL star schema with idempotent upserts
+- Data quality checks reject bad day files before anything reaches the database
+- Retries with exponential backoff for API timeouts
+- 18 pytest tests, GitHub Actions CI, Docker Compose setup, one-off deployment on AWS EC2
+
 A small data pipeline in Python that pulls hourly air quality data for four Indian cities from a public API, stores every raw response on disk, checks its quality, and loads the readings into a PostgreSQL star schema. Re-running it is safe: loads are idempotent. The whole thing runs with Docker.
 
 > **Data note:** the readings come from the Open-Meteo Air Quality API, which provides **modeled data at roughly 11 km resolution, not sensor measurements**. Treat the values as estimates for an area, not as what a monitoring station recorded.
@@ -129,6 +135,10 @@ Settings come from `.env` (see `.env.example`): `DB_HOST`, `DB_PORT`, `DB_NAME`,
 ## Analysis
 
 `sql/analysis.sql` holds six queries on the star schema, each with a comment stating its question. Run them one at a time in a SQL client such as DBeaver, or all together with `psql -f sql/analysis.sql`.
+
+Example: city ranking by average PM2.5 (query 3, 1 to 10 October 2026)
+
+![alt text](image.png)
 
 1. **Coverage check:** city/days that do not have exactly 24 rows
 2. **Worst hour of the day:** the hour with the highest average PM2.5 per city

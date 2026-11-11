@@ -21,3 +21,10 @@ CREATE TABLE fact_air_quality(
    
    PRIMARY KEY (city_id, reading_time)
 );
+
+select c.city_name, round(AVG(f.pm2_5),1) as avg_pm25,
+rank() over(order by avg(f.pm2_5) desc) as rnk
+from fact_air_quality f
+join dim_city c on c.city_id=f.city_id
+group by c.city_name
+order by rnk;
