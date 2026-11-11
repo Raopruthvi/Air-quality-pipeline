@@ -33,6 +33,27 @@ Raw files are kept so the database can always be rebuilt without calling the API
 | `dim_city` | One row per city | `city_id` (identity primary key), `city_name` (unique), `latitude`, `longitude` as `NUMERIC(9,6)` |
 | `fact_air_quality` | One row per city per hour | primary key `(city_id, reading_time)`, six nullable `NUMERIC(8,2)` pollutant columns |
 
+```mermaid
+erDiagram
+    dim_city ||--o{ fact_air_quality : "city_id"
+    dim_city {
+        int city_id PK
+        text city_name UK
+        numeric latitude
+        numeric longitude
+    }
+    fact_air_quality {
+        int city_id PK, FK
+        timestamp reading_time PK
+        numeric pm10
+        numeric pm2_5
+        numeric carbon_monoxide
+        numeric dust
+        numeric carbon_dioxide
+        numeric nitrogen_dioxide
+    }
+```
+
 ## Design decisions
 
 - **Idempotent loads.** Both tables use `INSERT ... ON CONFLICT DO UPDATE`. Loading the same files twice leaves the same row count, and corrected values overwrite stale ones.
@@ -163,6 +184,16 @@ The tests cover pure logic and the retry behavior. They do not include an integr
 ```
 
 `data/raw/` holds the saved API responses and is git-ignored.
+
+
+## Deployment (AWS EC2)
+
+I deployed the pipeline once on an AWS EC2 instance with Docker Compose to check that it runs outside my laptop, then tore the environment down to avoid cost.
+
+- Ran the same `docker-compose.yml` used locally (PostgreSQL + the pipeline service).
+- Security group: SSH access restricted to my own IP.
+- Ran extract and load on the instance. Loads are idempotent, so re-running adds no duplicate rows.
+- This was a one-off deployment, not a scheduled production setup (see Known limitations).
 
 ## Known limitations
 
